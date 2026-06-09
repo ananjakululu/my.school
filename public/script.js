@@ -1,9 +1,10 @@
 'use strict';
 // Define your backend API URL
-// This automatically detects if you are on localhost or your live site
-const API_URL = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
+// SMART URL: Automatically uses localhost if testing, or the live site if deployed
+const API_URL = (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1")
     ? "http://localhost:8000"
-    : window.location.origin; // <--- This makes it dynamic (works for cbeguru, tvet-json-db, etc.)
+    : window.location.origin; 
+    // window.location.origin automatically becomes https://cbeguru.onrender.com
 
 // ==========================================================================
 //   DATA STORE & CONFIGURATION (CBC ALIGNED)
