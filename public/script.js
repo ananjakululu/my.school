@@ -1,6 +1,8 @@
 'use strict';
 // Define your backend API URL
-const API_URL = "https://tvet-json-db.onrender.com";
+const API_URL = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
+    ? "http://localhost:8000"           // Local Development
+    : "https://tvet-json-db.onrender.com"; // Production (Render)
 
 // ==========================================================================
 //   DATA STORE & CONFIGURATION (CBC ALIGNED)
@@ -205,63 +207,78 @@ async function loadData() {
     if (!token) return logout();
 
     try {
-        const res = await fetch('/api/db', {
-            headers: { 'Authorization': `Bearer ${token}` }
+        // 1. FETCH SPECIFIC ENDPOINTS (As per your snippet request)
+        const [studentsRes, staffRes, settingsRes, examsRes, learningAreasRes] = await Promise.all([
+            fetch(`${API_URL}/students`),
+            fetch(`${API_URL}/staff`),
+            fetch(`${API_URL}/settings`),
+            fetch(`${API_URL}/exams`),
+            fetch(`${API_URL}/learningAreas`)
+        ]);
+
+        // 2. PARSE DATA
+        const students = await studentsRes.json();
+        const staff = await staffRes.json();
+        const settings = await settingsRes.json();
+        const exams = await examsRes.json();
+        const learningAreas = await learningAreasRes.json();
+
+        // 3. POPULATE THE STORE
+        store.students = students || [];
+        store.staff = staff || [];
+        store.exams = exams || [];
+        store.clearedStudents = []; // Assuming this is local-only or needs another endpoint
+        store.notes = [];
+        store.messages = [];
+        
+        // Merge Settings (Default + Server)
+        store.settings = { ...store.settings, ...settings };
+
+        // Intelligent Subject Merging (Keep your defaults, add new ones from server)
+        let existingAreas = learningAreas || [];
+        DEFAULT_LEARNING_AREAS.forEach(def => {
+            const exists = existingAreas.some(area => area.code === def.code);
+            if (!exists) existingAreas.push(def);
         });
-        
-        if (res.status === 401 || res.status === 403) {
-            return logout();
-        }
+        store.learningAreas = existingAreas;
 
-        const data = await res.json();
-        
-        if (data) {
-            store.students = data.students || [];
-            store.staff = data.staff || [];
-            store.exams = data.exams || [];
-            store.clearedStudents = data.clearedStudents || [];
-            store.notes = data.notes || [];
-            store.messages = data.messages || [];
-            store.settings = { ...store.settings, ...data.settings };
+        // Refresh UI
+        renderDashboard(); 
+        renderStaff();
 
-            // --- FIXED: INTELLIGENT SUBJECT MERGING ---
-            // Start with existing data or empty array
-            let existingAreas = data.learningAreas || [];
-            
-            // Merge defaults into existing to ensure new official subjects exist
-            DEFAULT_LEARNING_AREAS.forEach(def => {
-                // Check if subject exists by CODE (standard identifier)
-                const exists = existingAreas.some(area => area.code === def.code);
-                if (!exists) {
-                    existingAreas.push(def);
-                }
-            });
-            
-            store.learningAreas = existingAreas;
-            // ------------------------------------------
-        }
     } catch (err) {
-        console.error("Failed to load data from server. Using defaults.", err);
-        // Fallback to defaults if load fails completely
-        store.learningAreas = DEFAULT_LEARNING_AREAS;
+        console.error("Failed to load data from server.", err);
+        showToast('Error connecting to server. Check internet.', 'error');
     }
 }
-
 async function saveData() {
     const token = localStorage.getItem('authToken');
     if (!token) return;
 
     try {
-        await fetch('/api/db', {
-            method: 'POST',
+        // Optional: Remove heavy image data if the API has payload size limits
+        // const dataToSend = { ...store }; 
+        // dataToSend.settings.logo = null; // If you want to skip logo to save space
+
+        const res = await fetch(API_URL, {
+            method: 'POST', // Change to 'PUT' if your backend expects a full replacement
+            mode: 'cors',
             headers: { 
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${token}` 
             },
             body: JSON.stringify(store)
         });
+
+        if (!res.ok) {
+            throw new Error(`Failed to save: ${res.status}`);
+        }
+        
+        // Optional: Visual feedback that save happened
+        // console.log('Data saved successfully');
     } catch (err) {
         console.error("Failed to save data to server", err);
+        showToast('Failed to save changes to server.', 'error');
     }
 }
 

@@ -1,18 +1,10 @@
 {
-  "name": "tvet-manager-json-db",
+  "name": "tvet-json-db",
   "version": "1.0.0",
-  "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "json-server --watch db.json --host 0.0.0.0"
   },
   "dependencies": {
-    "bcryptjs": "^2.4.3",
-    "cors": "^2.8.5",
-    "dotenv": "^16.0.0",
-    "express": "^4.18.2",
-    "helmet": "^7.0.0",
-    "jsonwebtoken": "^9.0.0",
-    "morgan": "^1.10.0",
-    "express-rate-limit": "^6.7.0"
+    "json-server": "^0.17.0"
   }
 }
