@@ -102,6 +102,7 @@ async function initializeDefaultDB() {
         users: [
             { id: 'u1', email: 'admin@school.com', passwordHash: hashedAdminPass, role: 'admin', name: 'Admin User' },
             { id: 'u2', email: 'teacher@school.com', passwordHash: hashedTeacherPass, role: 'teacher', name: 'Mr. Teacher' }
+            { id: 'u3', email: 'student@school.com', passwordHash: hashedStudentPass, role: 'student', name: 'Test Student' }
         ]
     };
     await saveDB(initialData);
