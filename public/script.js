@@ -209,47 +209,45 @@ async function loadData() {
     if (!token) return logout();
 
     try {
-        // 1. FETCH THE WHOLE DATABASE from the specific endpoint
+        // 1. Try to fetch from Server
         const res = await fetch(`${API_URL}/api/db`, {
             method: 'GET',
             headers: { 'Authorization': `Bearer ${token}` }
         });
 
-        if (!res.ok) throw new Error('Failed to load database');
+        if (res.ok) {
+            const db = await res.json();
+            // Populate Store from Server
+            store.students = db.students || [];
+            store.staff = db.staff || [];
+            store.exams = db.exams || [];
+            store.settings = { ...store.settings, ...db.settings };
+            
+            let existingAreas = db.learningAreas || [];
+            DEFAULT_LEARNING_AREAS.forEach(def => {
+                if (!existingAreas.some(area => area.code === def.code)) existingAreas.push(def);
+            });
+            store.learningAreas = existingAreas;
+        } else {
+            throw new Error("Server response not OK");
+        }
 
-        const db = await res.json();
-
-        // 2. POPULATE THE STORE from the single response
-        store.students = db.students || [];
-        store.staff = db.staff || [];
-        store.exams = db.exams || [];
-        store.clearedStudents = []; 
-        
-        // Merge Settings
-        store.settings = { ...store.settings, ...db.settings };
-
-        // Intelligent Subject Merging (Keep defaults, add new ones from server)
-        let existingAreas = db.learningAreas || [];
-        DEFAULT_LEARNING_AREAS.forEach(def => {
-            const exists = existingAreas.some(area => area.code === def.code);
-            if (!exists) existingAreas.push(def);
-        });
-        store.learningAreas = existingAreas;
-
-        // 3. Refresh UI
         renderDashboard(); 
         renderStaff();
 
     } catch (err) {
         console.error("Failed to load data from server.", err);
-        showToast('Error connecting to server. Check internet.', 'error');
         
-        // Fallback: Load from LocalStorage if server fails (Optional but recommended)
-        const localData = localStorage.getItem('elimutrack_data_backup');
+        // 2. FALLBACK: Load from LocalStorage (The Safety Net)
+        const localData = localStorage.getItem('elimutrack_backup');
         if (localData) {
-            Object.assign(store, JSON.parse(localData));
+            const parsed = JSON.parse(localData);
+            Object.assign(store, parsed);
             renderDashboard();
             renderStaff();
+            alert("Warning: Could not connect to server. Loaded previously saved data from browser.");
+        } else {
+            alert("Critical Error: No data found on Server or Browser.");
         }
     }
 }
@@ -257,34 +255,53 @@ async function saveData() {
     const token = localStorage.getItem('authToken');
     if (!token) return;
 
+    // 1. LocalStorage Backup (Safety Net)
     try {
-        // 1. POST to the correct endpoint
-        const res = await fetch(`${API_URL}/api/db`, {
-            method: 'POST',
-            headers: { 
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}` 
-            },
-            body: JSON.stringify(store)
-        });
+        localStorage.setItem('elimutrack_backup', JSON.stringify(store));
+    } catch (e) { console.warn("Local Storage full"); }
 
-        if (!res.ok) {
-            // If saving fails due to permissions (403), alert the user
-            if (res.status === 403) {
-                throw new Error("Permission Denied: Only Admins can save data.");
-            }
-            throw new Error(`Server Error: ${res.status}`);
+    try {
+        // 2. Send data to specific json-server endpoints
+        // We use Promise.all to send everything at once for speed
+        const [studentsRes, staffRes, settingsRes, examsRes, areasRes] = await Promise.all([
+            fetch(`${API_URL}/students`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(store.students)
+            }),
+            fetch(`${API_URL}/staff`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(store.staff)
+            }),
+            fetch(`${API_URL}/settings`, {
+                method: 'POST', // json-server usually handles single object settings by replacing them
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(store.settings)
+            }),
+            fetch(`${API_URL}/exams`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(store.exams)
+            }),
+            fetch(`${API_URL}/learningAreas`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(store.learningAreas)
+            })
+        ]);
+
+        // Check if any failed
+        if (!studentsRes.ok || !staffRes.ok || !settingsRes.ok || !examsRes.ok || !areasRes.ok) {
+            throw new Error('One or more resources failed to sync');
         }
-        
-        // Optional: Visual feedback
-        // showToast('Data saved successfully to server!');
 
-        // 2. Fallback: Save to LocalStorage for backup
-        localStorage.setItem('elimutrack_data_backup', JSON.stringify(store));
+        console.log('All data synced with json-server');
+        showToast('All changes saved successfully!');
 
     } catch (err) {
-        console.error("Failed to save data to server", err);
-        showToast(err.message || 'Failed to save changes to server.', 'error');
+        console.error("Sync failed", err);
+        showToast('Failed to save to server. Check Console.', 'error');
     }
 }
 function applyRoleRestrictions(role) {
@@ -1081,12 +1098,18 @@ function executeUpdateAssessment(payload) {
 //   STAFF SECTION
 // ==========================================================================
 function initStaffSection() { 
-    // Ensure we respect the current view setting on init
+    // 1. CLEAR FILTERS: Prevent "Sticky Search" issues where the browser remembers text
+    if ($('staffSearch')) $('staffSearch').value = '';
+    if ($('staffDeptFilter')) $('staffDeptFilter').value = 'all';
+
+    // 2. RESTORE VIEW STATE: Ensure the correct Grid/List button is active
     const activeBtn = document.querySelector(`.btn-group .btn[data-section="staff"][data-view="${currentView.staff}"]`);
     if(activeBtn) {
         document.querySelectorAll('.btn-group .btn[data-section="staff"]').forEach(b => b.classList.remove('active'));
         activeBtn.classList.add('active');
     }
+    
+    // 3. RENDER: Load the data
     renderStaff(); 
 }
 
