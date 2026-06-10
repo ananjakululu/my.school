@@ -1,3 +1,9 @@
+'use strict';
+
+// ==========================================================================
+//   INITIALIZATION
+// ==========================================================================
+
 document.addEventListener('DOMContentLoaded', () => {
     // 1. SECURITY CHECK
     // If user is already logged in, send them to the dashboard
@@ -73,7 +79,6 @@ function showToast(msg, type = 'success') {
     toast.innerHTML = `<i class="fa-solid ${icon}"></i> <span>${msg}</span>`;
     container.appendChild(toast);
     
-    // Remove toast after 3 seconds
     setTimeout(() => {
         toast.style.opacity = '0';
         setTimeout(() => toast.remove(), 300);
@@ -81,7 +86,7 @@ function showToast(msg, type = 'success') {
 }
 
 // ==========================================================================
-//   AUTHENTICATION LOGIC (UPDATED FOR JSON-SERVER)
+//   AUTHENTICATION LOGIC (SECURE BCRYPT VERSION)
 // ==========================================================================
 
 // 1. LOGIN FORM HANDLER
@@ -91,7 +96,6 @@ document.getElementById('loginForm')?.addEventListener('submit', async (e) => {
     const btn = document.getElementById('loginBtn');
     const originalText = btn.innerHTML;
     
-    // Set loading state
     btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Signing in...';
     btn.disabled = true;
 
@@ -99,30 +103,38 @@ document.getElementById('loginForm')?.addEventListener('submit', async (e) => {
     const password = document.getElementById('loginPass').value;
 
     try {
-        // NOTE: We fetch '/users' because json-server doesn't have a real '/api/login'
         const res = await fetch('/users');
-        
         if (!res.ok) throw new Error('Failed to connect to server');
-
+        
         const users = await res.json();
         
-        // Find user with matching email AND password
-        const user = users.find(u => u.email === email && u.password === password);
+        // Loop through users to find matching email, then verify hash
+        let foundUser = null;
+        for (const user of users) {
+            if (user.email === email) {
+                // Verify the password against the hash
+                const isMatch = await bcrypt.compare(password, user.passwordHash);
+                if (isMatch) {
+                    foundUser = user;
+                    break;
+                }
+            }
+        }
 
-        if (user) {
-            // SUCCESS: Create a fake token and save user data
-            const fakeToken = 'fake-jwt-' + Date.now();
+        if (foundUser) {
+            // SUCCESS
+            const fakeToken = 'jwt-token-' + Date.now();
             
             localStorage.setItem('authToken', fakeToken);
-            localStorage.setItem('user', JSON.stringify(user));
+            localStorage.setItem('user', JSON.stringify(foundUser));
             
-            showToast('Login successful! Redirecting...', 'success');
+            showToast('Login Successful! Redirecting...', 'success');
             
             setTimeout(() => {
                 window.location.href = 'dashboard.html'; 
             }, 1000);
         } else {
-            // FAILURE: Wrong credentials
+            // FAILURE
             showToast('Invalid email or password.', 'error');
             btn.innerHTML = originalText;
             btn.disabled = false;
@@ -162,23 +174,27 @@ document.getElementById('signupForm')?.addEventListener('submit', async (e) => {
             return;
         }
 
-        // STEP 2: Create the new user via POST to '/users'
+        // STEP 2: HASH THE PASSWORD (Security)
+        const passwordHash = await bcrypt.hash(password, 10);
+
+        // STEP 3: Create the new user via POST to '/users'
+        // We send 'passwordHash' to the DB, not 'password'
         const res = await fetch('/users', { 
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
                 name, 
                 email, 
-                password, 
-                role: 'teacher', // Default role
+                passwordHash, // <-- Storing the hash
+                role: 'teacher',
                 createdAt: new Date().toISOString()
             })
         });
 
         if (res.ok) {
             showToast('Account created! Please log in.', 'success');
-            e.target.reset(); // Clear form
-            switchMode('login'); // Switch to login tab
+            e.target.reset();
+            switchMode('login'); 
         } else {
             showToast('Failed to create account.', 'error');
         }
@@ -186,7 +202,6 @@ document.getElementById('signupForm')?.addEventListener('submit', async (e) => {
         console.error(err);
         showToast('Network error.', 'error');
     } finally {
-        // Reset button state regardless of outcome
         btn.innerHTML = originalText;
         btn.disabled = false;
     }
