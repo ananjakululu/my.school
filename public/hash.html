@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Password Hash Generator</title>
+    <!-- Include Bcrypt Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bcryptjs/2.4.3/bcrypt.min.js"></script>
+
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 2rem; max-width: 500px; margin: auto; background: #f9fafb; border-radius: 12px; box-shadow: 0 10px 15px rgba(0,0,0,0.05); }
+        .container { text-align: center; }
+        h2 { color: #1f2937; margin-bottom: 1rem; }
+        
+        .box { background: white; padding: 2rem; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        
+        input { width: 100%; padding: 12px; border: 1px solid #d1d5db; border-radius: 6px; margin-bottom: 1rem; box-sizing: border-box; }
+        
+        button { width: 100%; padding: 12px; background: #4f46e5; color: white; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; transition: 0.2s; }
+        button:hover { background: #4338ca; }
+        
+        textarea { 
+            width: 100%; 
+            margin-top: 1rem; 
+            padding: 10px; 
+            background: #f3f4f6; 
+            color: #1e293b; 
+            border: 1px solid #d1d5db; 
+            border-radius: 6px; 
+            font-family: monospace; 
+            font-size: 14px; 
+            resize: none; 
+            box-sizing: border-box; 
+            min-height: 80px;
+        }
+        
+        .alert { color: #dc2626; font-size: 0.9rem; margin-top: 10px; display: none; text-align: center; }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h2>Password Hasher</h2>
+        <p>Enter the password (e.g., <code>admin123</code>) to generate a hash.</p>
+        
+        <div class="box">
+            <div class="input-group">
+                <input type="text" id="hashInput" placeholder="Enter password (e.g., admin123)" autocomplete="off">
+            </div>
+            
+            <button onclick="generateHash()">Generate Hash</button>
+            
+            <div id="error" class="alert"></div>
+
+            <h3 style="margin-top: 1.5rem; color: #374151;">Output:</h3>
+            <textarea id="hashOutput" readonly placeholder="Hash will appear here..."></textarea>
+            
+            <p style="font-size: 0.9rem; color: #64748b; margin-top: 10px; text-align: left;">
+                <strong>Next Steps:</strong>
+                <ol style="text-align: left; margin: 0; padding-left: 20px; color: #374151;">
+                    <li>Copy the hash above.</li>
+                    > Open your local <code>db.json</code>.</li>
+                    > Find the admin user.</li>
+                    > Replace the <code>"passwordHash"</code> value with the hash you copied.</li>
+                    > Save and run <code>npm start</code>.</li>
+                </ol>
+            </p>
+        </div>
+    </div>
+
+    <script>
+        async function generateHash() {
+            const input = document.getElementById('hashInput').value;
+            const output = document.getElementById('hashOutput');
+            const errorDiv = document.getElementById('error');
+
+            if (!input) {
+                errorDiv.style.display = 'block';
+                errorDiv.innerText = "Please enter a password first.";
+                return;
+            } else {
+                errorDiv.style.display = 'none';
+            }
+
+            try {
+                // Generate hash with 10 salt rounds (Standard Security)
+                const hash = await bcrypt.hash(input, 10);
+                output.value = hash;
+            } catch (err) {
+                alert('Error generating hash: ' + err.message);
+            }
+        }
+    </script>
+</body>
+</html>
