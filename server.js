@@ -457,4 +457,5 @@ app.listen(PORT, () => {
     console.log(`[OK] SQLite Server running at http://localhost:${PORT}`);
     console.log(`[INFO] Database File: school.db`);
     console.log(`[INFO] Default Admin: admin@school.com / admin123`);
+
 });
