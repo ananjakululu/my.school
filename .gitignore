@@ -1,13 +1,3 @@
-# Dependencies
-node_modules/
-
-# Environment Variables (Secrets)
+node_modules
 .env
-
-# Databases (CRITICAL - Do not upload these)
 school.db
-db.json
-
-# OS Files
-.DS_Store
-Thumbs.db
