@@ -244,21 +244,28 @@ async function loadData() {
     });
 
     if (result.ok && result.data) {
-                const serverData = result.data;
+                        const serverData = result.data;
         
-        // CRITICAL FIX: Strip heavy photos from server data to prevent phone crash
-        if (serverData.students) serverData.students = serverData.students.map(s => ({ ...s, photo: null }));
-        if (serverData.staff) serverData.staff = serverData.staff.map(s => ({ ...s, photo: null }));
+        // ⚠️ PHONE SURVIVAL FIX: Strip huge Base64 photos immediately!
+        // Phones crash (Out of Memory) when parsing 20MB+ of image data.
+        if (serverData.students) serverData.students.forEach(s => s.photo = null);
+        if (serverData.staff) serverData.staff.forEach(s => s.photo = null);
         if (serverData.settings) {
             serverData.settings.logo = null;
             serverData.settings.stamp = null;
             serverData.settings.hoiSignature = null;
             serverData.settings.ctSignature = null;
         }
+        
+        // Grab local data BEFORE overwriting anything
+        // ⚠️ PHONE SURVIVAL FIX: Don't parse local data if it's huge
         const localRaw = localStorage.getItem('elimutrack_backup');
         let localData = null;
-        if (localRaw) {
+        if (localRaw && localRaw.length < 5000000) {
             try { localData = JSON.parse(localRaw); } catch (e) { localData = null; }
+        } else if (localRaw) {
+            console.warn('[DATA] Local backup too large, clearing it.');
+            localStorage.removeItem('elimutrack_backup');
         }
 
         // ──── FIX: UNION MERGE BY ID (No more empty reports on new devices!) ────
@@ -2146,6 +2153,7 @@ function getCompetenceStatus(score) {
 
 
 function resetExamView() { currentExamContext = { studentId: null, subjectId: null }; if ($('examStudentSelect')) { $('examStudentSelect').innerHTML = "<option value=''>Select Learner...</option>"; $('examStudentSelect').disabled = true; } if ($('examTradeSelect')) $('examTradeSelect').value = ""; if ($('examInterface')) $('examInterface').style.display = 'none'; if ($('examEmptyState')) $('examEmptyState').style.display = 'flex'; }
+
 function loadExamStudents() { const grade = currentExamContext.tradeId; const studentSelect = $('examStudentSelect'); if (!studentSelect) return; studentSelect.innerHTML = "<option value=''>Select Learner...</option>"; currentExamContext.studentId = null; if (!grade) { studentSelect.disabled = true; return; } studentSelect.disabled = false; const filtered = StudentRepo.findBy('grade', grade); if (filtered.length === 0) { studentSelect.innerHTML = "<option value=''>No learners in this grade</option>"; studentSelect.disabled = true; return; } filtered.forEach(s => { studentSelect.innerHTML += `<option value="${s.id}">${s.name} (${s.reg})</option>`; }); if ($('examInterface')) $('examInterface').style.display = 'none'; if ($('examEmptyState')) $('examEmptyState').style.display = 'flex'; }
 function loadCBETUnits() { const studentId = currentExamContext.studentId; if (!studentId) return; const student = StudentRepo.getById(studentId); if (!student) return; if ($('examInterface')) $('examInterface').style.display = 'flex'; if ($('examEmptyState')) $('examEmptyState').style.display = 'none'; if ($('sidebarStudentName')) $('sidebarStudentName').innerText = student.name; if ($('sidebarStudentReg')) $('sidebarStudentReg').innerText = student.reg; if ($('sidebarStudentTrade')) $('sidebarStudentTrade').innerText = student.grade; renderCBETUnits(student); }
 function renderCBETUnits(student) { 
@@ -9509,7 +9517,7 @@ function router(viewId, navEl) {
         case 'dashboard': renderDashboard(); break; 
         case 'students': initStudentSection(); break; 
         case 'staff': initStaffSection(); break; 
-        case 'exams': setTimeout(() => { resetExamView(); if (typeof initExamSystemDashboard === 'function') initExamSystemDashboard(); }, 50); break; 
+        case 'exams': resetExamView(); if (typeof initExamSystemDashboard === 'function') setTimeout(initExamSystemDashboard, 80); break; 
         case 'intake': resetIntakeForm(); break; 
         case 'settings': updateSettingsForm(); renderCourseSettings(); break; 
         case 'curricula': renderCurricula(); break;
