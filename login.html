@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Secure Access | Tande Primary & JS</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary: #4f46e5; --primary-dark: #4338ca; --bg-body: #f1f5f9; --bg-card: #ffffff;
+            --text-main: #1e293b; --text-muted: #64748b; --border: #e2e8f0;
+            --error: #ef4444; --success: #10b981; --radius: 1rem;
+            --shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+        }
+        [data-theme="dark"] {
+            --bg-body: #0f172a; --bg-card: #1e293b;
+            --text-main: #f8fafc; --text-muted: #94a3b8; --border: #334155;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', sans-serif; }
+        body { background: var(--bg-body); color: var(--text-main); min-height: 100vh; display: flex; align-items: center; justify-content: center; transition: background 0.3s; }
+        .auth-container { width: 100%; max-width: 440px; padding: 1rem; }
+        .auth-card { background: var(--bg-card); padding: 2.5rem; border-radius: var(--radius); box-shadow: var(--shadow); border: 1px solid var(--border); text-align: center; position: relative; overflow: hidden; }
+        
+        /* Auth Toggle */
+        .auth-toggle { display: flex; background: var(--bg-body); border-radius: 50px; padding: 4px; margin-bottom: 2rem; position: relative; }
+        .toggle-btn { flex: 1; padding: 0.8rem; border: none; background: transparent; color: var(--text-muted); font-weight: 600; cursor: pointer; z-index: 1; transition: color 0.3s; }
+        .toggle-btn.active { color: white; }
+        .toggle-slider { position: absolute; top: 4px; left: 4px; height: calc(100% - 8px); width: calc(50% - 4px); background: var(--primary); border-radius: 50px; transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+
+        /* Forms */
+        .form-group { margin-bottom: 1.2rem; text-align: left; position: relative; }
+        .input-wrapper { position: relative; }
+        .input-icon { position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); color: var(--text-muted); pointer-events: none; z-index: 1; }
+        .form-input { width: 100%; padding: 0.8rem 1rem 0.8rem 2.8rem; border: 1px solid var(--border); border-radius: 0.6rem; background: var(--bg-card); color: var(--text-main); font-size: 1rem; transition: 0.2s; }
+        .form-input:focus { border-color: var(--primary); outline: none; box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1); }
+        
+        /* Password Toggle */
+        .toggle-password { position: absolute; right: 1rem; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--text-muted); cursor: pointer; }
+        
+        .btn { width: 100%; padding: 0.9rem; border: none; border-radius: 0.6rem; background: var(--primary); color: white; font-weight: 600; cursor: pointer; transition: 0.2s; font-size: 1rem; display: flex; align-items: center; justify-content: center; gap: 8px; }
+        .btn:hover { background: var(--primary-dark); transform: translateY(-1px); }
+        .btn:disabled { opacity: 0.7; cursor: not-allowed; transform: none; }
+
+        /* Toast */
+        .toast-container { position: fixed; top: 20px; right: 20px; z-index: 2000; display: flex; flex-direction: column; gap: 10px; }
+        .toast { background: var(--bg-card); border-left: 4px solid var(--primary); padding: 1rem; border-radius: 0.5rem; box-shadow: var(--shadow); display: flex; align-items: center; gap: 10px; animation: slideIn 0.3s ease-out; min-width: 300px; }
+        .toast.success { border-color: var(--success); }
+        .toast.error { border-color: var(--error); }
+        @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+        .hidden { display: none; }
+        .fade-in { animation: fadeIn 0.3s ease-in; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* Theme Toggle */
+        .theme-toggle { position: fixed; top: 20px; right: 20px; background: var(--bg-card); border: 1px solid var(--border); width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--text-main); z-index: 100; transition: 0.3s; }
+        .theme-toggle:hover { transform: rotate(15deg); }
+        .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); border: 0; }
+
+        /* Demo Box */
+        .demo-box { background: var(--bg-body); padding: 1rem; border-radius: 0.5rem; margin-top: 1.5rem; text-align: left; font-size: 0.85rem; color: var(--text-muted); border: 1px dashed var(--border); }
+        .demo-box strong { color: var(--primary); }
+    </style>
+</head>
+<body>
+
+    <button class="theme-toggle" id="themeToggle" title="Toggle Theme"><i class="fa-solid fa-moon"></i></button>
+    <div class="toast-container" id="toastContainer"></div>
+
+    <div class="auth-container">
+        <div class="auth-card">
+            <div style="margin-bottom: 1.5rem;">
+                <i class="fa-solid fa-graduation-cap" style="font-size: 2.5rem; color: var(--primary);"></i>
+                <h2 style="margin-top: 0.5rem; color: var(--text-main);">Tande Primary & JS</h2>
+                <small style="color: var(--text-muted);">CBE Management System</small>
+            </div>
+            
+            <div class="auth-toggle">
+                <div class="toggle-slider" id="slider"></div>
+                <button type="button" class="toggle-btn active" onclick="switchMode('login')">Sign In</button>
+                <button type="button" class="toggle-btn" onclick="switchMode('signup')">Sign Up</button>
+            </div>
+
+            <!-- Login Form -->
+            <form id="loginForm" class="fade-in" autocomplete="on">
+                <div class="form-group">
+                    <label for="loginUser" class="sr-only">Username</label>
+                    <div class="input-wrapper">
+                        <i class="fa-solid fa-user input-icon"></i>
+                        <input type="text" id="loginUser" class="form-input" placeholder="Username or Email" autocomplete="username" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="loginPass" class="sr-only">Password</label>
+                    <div class="input-wrapper">
+                        <i class="fa-solid fa-lock input-icon"></i>
+                        <input type="password" id="loginPass" class="form-input" placeholder="Password" autocomplete="current-password" required>
+                        <button type="button" class="toggle-password" onclick="togglePasswordVisibility('loginPass', this)">
+                            <i class="fa-solid fa-eye"></i>
+                        </button>
+                    </div>
+                </div>
+                <button type="submit" class="btn" id="loginBtn">Sign In Securely</button>
+                
+                <div class="demo-box">
+                    <i class="fa-solid fa-info-circle"></i> <strong>Demo Access:</strong><br>
+                    User: <code>admin@school.com</code> &nbsp; Pass: <code>admin123</code>
+                </div>
+            </form>
+
+            <!-- Signup Form -->
+            <form id="signupForm" class="hidden fade-in">
+                <div class="form-group">
+                    <div class="input-wrapper">
+                        <i class="fa-solid fa-user input-icon"></i>
+                        <input type="text" id="signupName" class="form-input" placeholder="Full Name" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <div class="input-wrapper">
+                        <i class="fa-solid fa-envelope input-icon"></i>
+                        <input type="email" id="signupEmail" class="form-input" placeholder="Email Address" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <div class="input-wrapper">
+                        <i class="fa-solid fa-lock input-icon"></i>
+                        <input type="password" id="signupPass" class="form-input" placeholder="Create Password" required>
+                        <button type="button" class="toggle-password" onclick="togglePasswordVisibility('signupPass', this)">
+                            <i class="fa-solid fa-eye"></i>
+                        </button>
+                    </div>
+                </div>
+                <button type="submit" class="btn">Create Account</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Link the external auth.js file -->
+    <script src="auth.js"></script>
+</body>
+</html>
